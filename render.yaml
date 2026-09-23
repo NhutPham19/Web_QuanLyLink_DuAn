@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: linkvault-backend
+    env: node
+    plan: starter
+    rootDir: web-quan-ly-link
+    buildCommand: npm install
+    startCommand: npm start
+    disk:
+      name: linkvault-data
+      mountPath: /app/data
+      sizeGB: 1
+    envVars:
+      - key: PORT
+        value: 3000
+      - key: DATABASE_DIR
+        value: /app/data
+      - key: NODE_ENV
+        value: production

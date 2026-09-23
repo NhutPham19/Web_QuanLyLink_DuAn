@@ -1,0 +1,13 @@
+services:
+  backend:
+    build: .
+    container_name: quan-ly-link-backend
+    ports:
+      - "3000:3000"
+    volumes:
+      # SQLite db lưu ra ngoài container, tránh mất data khi rebuild
+      - ./data:/app/data
+    environment:
+      - PORT=3000
+      - NODE_ENV=production
+    restart: unless-stopped

@@ -1,0 +1,15 @@
+services:
+  linkvault:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: linkvault-app
+    ports:
+      - "3000:3000"
+    volumes:
+      # Mount thư mục data chứa SQLite ra ngoài máy host
+      - ./data:/app/data
+    environment:
+      - PORT=3000
+      - NODE_ENV=production
+    restart: unless-stopped
