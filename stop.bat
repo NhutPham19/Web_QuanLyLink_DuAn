@@ -1,11 +1,11 @@
 @echo off
-chcp 65001 > nul
-title Dừng LinkVault (Docker)
+title Stop LinkVault
+cd /d "%~dp0"
 echo ===================================================
-echo     Đang dừng hệ thống LinkVault...
+echo   Dang dung he thong LinkVault...
 echo ===================================================
 docker compose down
 echo.
-echo ✅ Đã dừng container LinkVault an toàn.
+echo [OK] Da dung container LinkVault an toan.
 echo.
 pause

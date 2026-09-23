@@ -1,20 +1,21 @@
 @echo off
-chcp 65001 > nul
-title Khởi động LinkVault (Docker)
+title LinkVault (Docker)
+cd /d "%~dp0"
 echo ===================================================
-echo     Đang khởi động LinkVault qua Docker...
+echo   Dang khoi dong LinkVault qua Docker (Port 3005)...
 echo ===================================================
 docker compose up -d
 
 if %ERRORLEVEL% equ 0 (
     echo.
-    echo ✅ LinkVault đã khởi động thành công!
-    echo 🌐 Đang mở trình duyệt tại: http://localhost:3005
-    timeout /t 2 > nul
-    start http://localhost:3005
+    echo [OK] LinkVault da khoi dong thanh cong!
+    echo [OK] Dang mo trinh duyet tai: http://localhost:3005
+    ping -n 3 127.0.0.1 > nul
+    start "" "http://localhost:3005"
 ) else (
     echo.
-    echo ❌ Có lỗi khi khởi động Docker. Vui lòng đảm bảo Docker Desktop đã được bật.
+    echo [ERROR] Khong the khoi dong Docker.
+    echo Vui long kiem tra xem Docker Desktop da duoc bat chua.
 )
 echo.
 pause
