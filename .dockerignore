@@ -1,0 +1,10 @@
+node_modules
+*/node_modules
+.git
+data
+web-quan-ly-link/data
+dist
+frontend/dist
+*.log
+.vscode
+.idea
