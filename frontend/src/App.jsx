@@ -7,13 +7,16 @@ import { LinkModal } from './components/LinkModal';
 import { CategoryModal } from './components/CategoryModal';
 import { DeleteConfirmModal } from './components/DeleteConfirmModal';
 import { Toast } from './components/Toast';
-import { Plus, ArrowUpDown, Bookmark, Search, Layers, RefreshCw } from 'lucide-react';
+import { RESOURCE_TYPES } from './constants/tags';
+import { Plus, ArrowUpDown, Bookmark, Search, Layers, RefreshCw, X, Filter, Tag } from 'lucide-react';
 
 export default function App() {
   const [links, setLinks] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState(null);
+  const [activeResourceType, setActiveResourceType] = useState('all');
+  const [activeTagFilter, setActiveTagFilter] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('newest');
   const [viewMode, setViewMode] = useState(() => localStorage.getItem('linkvault_view') || 'grid');
@@ -80,19 +83,43 @@ export default function App() {
   const filteredLinks = useMemo(() => {
     return links
       .filter((link) => {
-        // Filter by category
+        // 1. Filter by category
         if (activeCategory === 'uncategorized') {
           if (link.category_id !== null && link.category_id !== undefined) return false;
         } else if (activeCategory !== null) {
           if (link.category_id !== activeCategory) return false;
         }
 
-        // Filter by search query
+        // 2. Filter by Resource Type
+        if (activeResourceType !== 'all') {
+          const resType = link.resource_type || 'project';
+          if (resType !== activeResourceType) return false;
+        }
+
+        // 3. Filter by Active Tag / Hosting click
+        if (activeTagFilter) {
+          const tagLower = activeTagFilter.toLowerCase();
+          const feMatch = link.frontend_host?.toLowerCase() === tagLower;
+          const beMatch = link.backend_host?.toLowerCase() === tagLower;
+          const dbMatch = link.database_host?.toLowerCase() === tagLower;
+          const techList = Array.isArray(link.tech_stack) ? link.tech_stack : [];
+          const techMatch = techList.some((t) => t.toLowerCase() === tagLower);
+
+          if (!feMatch && !beMatch && !dbMatch && !techMatch) return false;
+        }
+
+        // 4. Filter by search query
         if (searchQuery.trim()) {
           const q = searchQuery.toLowerCase().trim();
           const nameMatch = link.name?.toLowerCase().includes(q);
           const urlMatch = link.url?.toLowerCase().includes(q);
-          return nameMatch || urlMatch;
+          const feMatch = link.frontend_host?.toLowerCase().includes(q);
+          const beMatch = link.backend_host?.toLowerCase().includes(q);
+          const dbMatch = link.database_host?.toLowerCase().includes(q);
+          const techList = Array.isArray(link.tech_stack) ? link.tech_stack : [];
+          const techMatch = techList.some((t) => t.toLowerCase().includes(q));
+
+          return nameMatch || urlMatch || feMatch || beMatch || dbMatch || techMatch;
         }
 
         return true;
@@ -112,7 +139,7 @@ export default function App() {
         }
         return 0;
       });
-  }, [links, activeCategory, searchQuery, sortBy]);
+  }, [links, activeCategory, activeResourceType, activeTagFilter, searchQuery, sortBy]);
 
   // Counts
   const totalLinksCount = links.length;
@@ -148,7 +175,6 @@ export default function App() {
       await api.deleteLink(id);
       setLinks((prev) => prev.filter((l) => l.id !== id));
       showToast('Đã xóa liên kết!');
-      // Refresh categories count
       api.getCategories().then(setCategories).catch(console.error);
     } catch (err) {
       showToast(err.message || 'Lỗi khi xóa link', 'error');
@@ -162,7 +188,6 @@ export default function App() {
       setCategories((prev) =>
         prev.map((c) => (c.id === updated.id ? { ...c, ...updated } : c))
       );
-      // Also update linked links in state
       setLinks((prev) =>
         prev.map((l) =>
           l.category_id === updated.id
@@ -187,9 +212,7 @@ export default function App() {
     try {
       await api.deleteCategory(id);
       setCategories((prev) => prev.filter((c) => c.id !== id));
-      // Reset activeCategory if deleted
       if (activeCategory === id) setActiveCategory(null);
-      // Invalidate links category_id to null
       setLinks((prev) =>
         prev.map((l) =>
           l.category_id === id
@@ -229,7 +252,10 @@ export default function App() {
         <Sidebar
           categories={categories}
           activeCategory={activeCategory}
-          onSelectCategory={setActiveCategory}
+          onSelectCategory={(catId) => {
+            setActiveCategory(catId);
+            setActiveTagFilter(null);
+          }}
           onOpenAddCategory={() => {
             setEditingCategory(null);
             setCategoryModalOpen(true);
@@ -250,7 +276,7 @@ export default function App() {
         {/* Content Area */}
         <main className="flex-1 py-6 md:pl-8 min-w-0">
           {/* Section Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
@@ -295,13 +321,62 @@ export default function App() {
             </div>
           </div>
 
+          {/* Resource Type Filter Tabs */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-2 mb-4 scrollbar-none">
+            <button
+              onClick={() => setActiveResourceType('all')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-medium shrink-0 transition-all ${
+                activeResourceType === 'all'
+                  ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 font-semibold shadow-xs'
+                  : 'bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+              }`}
+            >
+              Tất cả loại
+            </button>
+            {RESOURCE_TYPES.map((rt) => (
+              <button
+                key={rt.id}
+                onClick={() => setActiveResourceType(rt.id)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-medium shrink-0 transition-all border ${
+                  activeResourceType === rt.id
+                    ? `${rt.bg} ${rt.text} ${rt.border} font-semibold shadow-xs`
+                    : 'bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+                }`}
+              >
+                {rt.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Active Tag Filter Banner */}
+          {activeTagFilter && (
+            <div className="flex items-center justify-between px-3.5 py-2 mb-4 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-900/60 text-xs">
+              <div className="flex items-center gap-2">
+                <Tag size={14} className="text-indigo-600 dark:text-indigo-400" />
+                <span className="text-zinc-700 dark:text-zinc-300">
+                  Đang lọc theo nhãn/hosting:
+                </span>
+                <span className="font-semibold text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded-md bg-white dark:bg-zinc-900 border border-indigo-200 dark:border-indigo-800">
+                  {activeTagFilter}
+                </span>
+              </div>
+              <button
+                onClick={() => setActiveTagFilter(null)}
+                className="flex items-center gap-1 font-medium text-rose-600 dark:text-rose-400 hover:underline"
+              >
+                <X size={13} />
+                <span>Xóa lọc nhãn</span>
+              </button>
+            </div>
+          )}
+
           {/* Links Grid or List */}
           {loading && links.length === 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {[...Array(6)].map((_, i) => (
                 <div
                   key={i}
-                  className="h-36 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl animate-pulse p-4"
+                  className="h-44 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl animate-pulse p-4"
                 />
               ))}
             </div>
@@ -309,28 +384,39 @@ export default function App() {
             /* Empty State */
             <div className="flex flex-col items-center justify-center py-16 px-4 text-center border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-2xl">
               <div className="w-14 h-14 rounded-2xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mb-4">
-                {searchQuery ? <Search size={26} /> : <Bookmark size={26} />}
+                {searchQuery || activeTagFilter ? <Search size={26} /> : <Bookmark size={26} />}
               </div>
               <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
-                {searchQuery ? 'Không tìm thấy liên kết phù hợp' : 'Chưa có liên kết nào'}
+                {searchQuery || activeTagFilter ? 'Không tìm thấy liên kết phù hợp' : 'Chưa có liên kết nào'}
               </h3>
               <p className="text-sm text-zinc-500 dark:text-zinc-400 max-w-sm mt-1 mb-5">
-                {searchQuery
+                {activeTagFilter
+                  ? `Không có liên kết nào mang nhãn "${activeTagFilter}".`
+                  : searchQuery
                   ? `Thử tìm kiếm với từ khóa khác hoặc xóa bộ lọc tìm kiếm.`
                   : activeCategory !== null
                   ? 'Danh mục này hiện chưa có liên kết nào. Hãy thêm ngay liên kết đầu tiên!'
                   : 'Hãy bắt đầu lưu trữ và quản lý các liên kết hữu ích của bạn ngay bây giờ.'}
               </p>
-              <button
-                onClick={() => {
-                  setEditingLink(null);
-                  setLinkModalOpen(true);
-                }}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 transition-all shadow-md shadow-indigo-600/20"
-              >
-                <Plus size={16} />
-                <span>Thêm liên kết mới</span>
-              </button>
+              {activeTagFilter ? (
+                <button
+                  onClick={() => setActiveTagFilter(null)}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold bg-zinc-200 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 hover:bg-zinc-300 dark:hover:bg-zinc-700 transition-colors"
+                >
+                  Xóa bộ lọc nhãn
+                </button>
+              ) : (
+                <button
+                  onClick={() => {
+                    setEditingLink(null);
+                    setLinkModalOpen(true);
+                  }}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 transition-all shadow-md shadow-indigo-600/20"
+                >
+                  <Plus size={16} />
+                  <span>Thêm liên kết mới</span>
+                </button>
+              )}
             </div>
           ) : (
             <div
@@ -353,6 +439,7 @@ export default function App() {
                     setDeleteModal({ isOpen: true, item: l, type: 'link' });
                   }}
                   onCopyToast={showToast}
+                  onTagClick={(tag) => setActiveTagFilter(tag)}
                 />
               ))}
             </div>

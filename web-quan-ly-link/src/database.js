@@ -51,13 +51,37 @@ const init = async () => {
 
   await run(`
     CREATE TABLE IF NOT EXISTS links (
-      id          INTEGER PRIMARY KEY AUTOINCREMENT,
-      category_id INTEGER REFERENCES categories(id) ON DELETE SET NULL,
-      name        TEXT    NOT NULL,
-      url         TEXT    NOT NULL,
-      created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      category_id   INTEGER REFERENCES categories(id) ON DELETE SET NULL,
+      name          TEXT    NOT NULL,
+      url           TEXT    NOT NULL,
+      frontend_host TEXT,
+      backend_host  TEXT,
+      database_host TEXT,
+      tech_stack    TEXT,
+      resource_type TEXT    DEFAULT 'project',
+      created_at    TEXT    NOT NULL DEFAULT (datetime('now'))
     )
   `);
+
+  // Auto-migration for existing SQLite database
+  const columns = await all(`PRAGMA table_info(links)`);
+  const colNames = columns.map((c) => c.name);
+  if (!colNames.includes('frontend_host')) {
+    await run(`ALTER TABLE links ADD COLUMN frontend_host TEXT`);
+  }
+  if (!colNames.includes('backend_host')) {
+    await run(`ALTER TABLE links ADD COLUMN backend_host TEXT`);
+  }
+  if (!colNames.includes('database_host')) {
+    await run(`ALTER TABLE links ADD COLUMN database_host TEXT`);
+  }
+  if (!colNames.includes('tech_stack')) {
+    await run(`ALTER TABLE links ADD COLUMN tech_stack TEXT`);
+  }
+  if (!colNames.includes('resource_type')) {
+    await run(`ALTER TABLE links ADD COLUMN resource_type TEXT DEFAULT 'project'`);
+  }
 
   // Seed category mặc định
   const count = await get('SELECT COUNT(*) as c FROM categories');

@@ -2,6 +2,7 @@
 title LinkVault (Node.js)
 cd /d "%~dp0web-quan-ly-link"
 set PORT=3005
+set DATABASE_DIR=%~dp0data
 echo ===================================================
 echo   Dang khoi dong LinkVault qua Node.js (Port 3005)
 echo ===================================================

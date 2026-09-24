@@ -61,18 +61,24 @@ export const api = {
     return res.data;
   },
 
-  async createLink({ name, url, category_id }) {
+  async createLink(payload) {
     const res = await request(`${API_BASE}/links`, {
       method: 'POST',
-      body: JSON.stringify({ name, url, category_id: category_id || null }),
+      body: JSON.stringify({
+        ...payload,
+        category_id: payload.category_id || null,
+      }),
     });
     return res.data;
   },
 
-  async updateLink(id, { name, url, category_id }) {
+  async updateLink(id, payload) {
     const res = await request(`${API_BASE}/links/${id}`, {
       method: 'PUT',
-      body: JSON.stringify({ name, url, category_id: category_id !== undefined ? category_id : null }),
+      body: JSON.stringify({
+        ...payload,
+        category_id: payload.category_id !== undefined ? payload.category_id : null,
+      }),
     });
     return res.data;
   },
