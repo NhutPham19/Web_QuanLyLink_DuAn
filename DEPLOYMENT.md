@@ -1,72 +1,70 @@
-# Hướng Dẫn Triển Khai LinkVault (Frontend lên Vercel + Backend lên Render)
+# Hướng Dẫn Triển Khai LinkVault (Vercel + Koyeb + Turso)
 
-Hệ thống đã được cấu hình tối ưu để triển khai theo mô hình:
-- **Frontend:** Lưu trữ trên **Vercel** (Miễn phí, CDN toàn cầu, tốc độ tải tức thì).
-- **Backend & Database:** Lưu trữ trên **Render.com** (hoặc Railway / Fly.io / VPS) có gắn ổ đĩa **Persistent Disk** để bảo toàn dữ liệu SQLite.
-
----
-
-## Bước 1: Đẩy mã nguồn lên GitHub
-
-Mở PowerShell tại thư mục dự án và chạy:
-```bash
-# Đổi tên nhánh sang main
-git branch -M main
-
-# Thêm remote GitHub của bạn (thay URL bên dưới bằng repo của bạn trên GitHub)
-git remote add origin https://github.com/<username>/<repo-name>.git
-
-# Push code lên GitHub
-git push -u origin main
-```
+Kiến trúc triển khai tối ưu 100% Free & Hiệu năng cao:
+- **Database:** **Turso (LibSQL)** — SQLite trên Cloud, datacenter Singapore (`sin`), tốc độ phản hồi cực nhanh (<15ms), 500 DBs miễn phí vĩnh viễn, không lo mất dữ liệu khi backend restart.
+- **Backend:** **Koyeb** — Free Tier chạy container liên tục, không tính giờ như Render, hỗ trợ kết nối trực tiếp Turso.
+- **Frontend:** **Vercel** — Global Edge CDN, deploy tự động từ nhánh GitHub, miễn phí và tốc độ tải trang tức thì.
 
 ---
 
-## Bước 2: Triển khai Backend lên Render.com (3 phút)
+## 1. Thiết lập Database Turso (Đã sẵn sàng mã nguồn)
 
-1. Đăng nhập vào [Render.com](https://render.com) (bằng tài khoản GitHub).
-2. Nhấn nút **New +** -> Chọn **Web Service**.
-3. Kết nối với repository GitHub vừa push ở Bước 1.
-4. Điền các thông số:
-   - **Name:** `linkvault-backend`
-   - **Root Directory:** `web-quan-ly-link`
-   - **Runtime:** `Node`
+1. Đăng nhập [Turso Dashboard](https://turso.tech).
+2. Tạo database:
+   - **Name:** `web-quan-ly-link`
+   - **Location:** `Singapore (sin)`
+3. Lấy thông tin kết nối từ giao diện:
+   - **Database URL:** dạng `libsql://web-quan-ly-link-<username>.turso.io`
+   - **Auth Token:** Nhấn nút **Create Token** -> Sao chép chuỗi Token bí mật.
+4. Tạo file `.env` tại thư mục gốc hoặc `web-quan-ly-link/`:
+   ```env
+   TURSO_DATABASE_URL=libsql://web-quan-ly-link-<username>.turso.io
+   TURSO_AUTH_TOKEN=eyJhbGciOi...
+   ```
+5. *(Tùy chọn)* Đẩy toàn bộ dữ liệu SQLite hiện tại lên Turso Cloud:
+   ```bash
+   cd web-quan-ly-link
+   npm run sync:turso
+   ```
+
+---
+
+## 2. Triển khai Backend lên Koyeb (Khi bạn sẵn sàng)
+
+1. Đăng nhập [Koyeb.com](https://www.koyeb.com) bằng GitHub.
+2. Nhấn **Create App** -> Chọn **GitHub**.
+3. Chọn repository: `NhutPham19/Web_QuanLyLink_DuAn`.
+4. Cấu hình triển khai:
+   - **Work directory:** `web-quan-ly-link`
    - **Build Command:** `npm install`
-   - **Start Command:** `npm start`
-5. **Cấu hình Ổ đĩa lưu SQLite (Quan trọng):**
-   - Kéo xuống mục **Disks** (hoặc Advanced) -> Nhấn **Add Disk**:
-     - **Name:** `linkvault-data`
-     - **Mount Path:** `/app/data`
-     - **Size:** `1 GB`
-6. Nhấn **Deploy Web Service**.
-7. Sau khi deploy xong, Render sẽ cấp cho bạn một đường dẫn (URL), ví dụ:
-   👉 `https://linkvault-backend.onrender.com`
-   *(Hãy kiểm tra bằng cách mở `https://linkvault-backend.onrender.com/health` -> nếu thấy `{"status":"ok"}` là backend đã sẵn sàng!)*
+   - **Run Command:** `npm start`
+   - **Ports:** `3000` (hoặc match PORT trong env)
+5. Thêm biến môi trường (**Environment Variables**):
+   - `TURSO_DATABASE_URL`: `libsql://...turso.io`
+   - `TURSO_AUTH_TOKEN`: `<your-token>`
+   - `PORT`: `8000` (hoặc để mặc định của Koyeb)
+6. Nhấn **Deploy**. Koyeb sẽ cấp URL cho bạn (ví dụ: `https://web-quan-ly-link-nhutpham.koyeb.app`).
+   - Kiểm tra API tại: `https://web-quan-ly-link-nhutpham.koyeb.app/health` -> Nhận `{"status":"ok"}`.
 
 ---
 
-## Bước 3: Triển khai Frontend lên Vercel (1 phút)
+## 3. Triển khai Frontend lên Vercel
 
-1. Đăng nhập vào [Vercel.com](https://vercel.com) (bằng GitHub).
-2. Nhấn **Add New...** -> Chọn **Project**.
-3. Chọn repository LinkVault của bạn từ danh sách.
-4. **Cấu hình Project:**
+1. Đăng nhập [Vercel.com](https://vercel.com) bằng GitHub.
+2. Nhấn **Add New...** -> **Project**.
+3. Chọn repo `NhutPham19/Web_QuanLyLink_DuAn`.
+4. Cấu hình:
    - **Framework Preset:** Vite
-   - **Root Directory:** Nhấn **Edit** và chọn thư mục `frontend`.
-5. **Thêm Biến Môi Trường (Environment Variables):**
-   - **Name / Key:** `VITE_API_URL`
-   - **Value:** Điền URL backend từ Bước 2 (ví dụ: `https://linkvault-backend.onrender.com`).
-6. Nhấn nút **Deploy**!
-
-🎉 **Hoàn tất!** Vercel sẽ tự động build và cấp domain cho giao diện (ví dụ: `https://linkvault-app.vercel.app`). Giao diện sẽ tự động kết nối và đồng bộ với backend SQLite!
+   - **Root Directory:** Chọn `frontend`
+5. Thêm biến môi trường (**Environment Variables**):
+   - `VITE_API_URL`: Điền URL backend từ Koyeb (ví dụ: `https://web-quan-ly-link-nhutpham.koyeb.app`)
+6. Nhấn **Deploy**.
 
 ---
 
-## Tùy chọn: Deploy Frontend nhanh bằng Vercel CLI
+## 4. Chạy Local (Offline / Phát triển nội bộ)
 
-Nếu không muốn dùng web dashboard, bạn có thể deploy trực tiếp từ terminal:
-```powershell
-cd frontend
-npx vercel
-```
-Vercel CLI sẽ hỏi bạn liên kết tài khoản và tạo link deploy ngay lập tức!
+- Nếu **không có** `TURSO_DATABASE_URL`, hệ thống tự động dùng file SQLite cục bộ tại `data/links.db`.
+- Khởi chạy nhanh bằng file script:
+  - `start.bat`: Chạy toàn bộ hệ thống bằng Docker.
+  - `start-node.bat`: Chạy trực tiếp bằng Node.js (cổng `3005`).

@@ -1,3 +1,26 @@
+const path = require('path');
+const fs = require('fs');
+
+// Auto-load .env if available
+[path.join(__dirname, '..', '.env'), path.join(__dirname, '..', '..', '.env')].forEach((envFile) => {
+  if (fs.existsSync(envFile)) {
+    const lines = fs.readFileSync(envFile, 'utf-8').split('\n');
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (trimmed && !trimmed.startsWith('#')) {
+        const idx = trimmed.indexOf('=');
+        if (idx !== -1) {
+          const key = trimmed.slice(0, idx).trim();
+          const val = trimmed.slice(idx + 1).trim().replace(/^["']|["']$/g, '');
+          if (key && !process.env[key]) {
+            process.env[key] = val;
+          }
+        }
+      }
+    }
+  }
+});
+
 const isTurso = Boolean(process.env.TURSO_DATABASE_URL);
 let run, get, all, db;
 
