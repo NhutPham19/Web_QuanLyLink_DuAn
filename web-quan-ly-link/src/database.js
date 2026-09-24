@@ -1,39 +1,68 @@
-const sqlite3 = require('sqlite3').verbose();
-const path = require('path');
-const fs = require('fs');
+const isTurso = Boolean(process.env.TURSO_DATABASE_URL);
+let run, get, all, db;
 
-const DATA_DIR = process.env.DATABASE_DIR || path.join(__dirname, '..', 'data');
-if (!fs.existsSync(DATA_DIR)) {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
+if (isTurso) {
+  const { createClient } = require('@libsql/client');
+  const client = createClient({
+    url: process.env.TURSO_DATABASE_URL,
+    authToken: process.env.TURSO_AUTH_TOKEN,
+  });
+
+  run = async (sql, params = []) => {
+    const rs = await client.execute({ sql, args: params });
+    return {
+      lastID: Number(rs.lastInsertRowid ?? 0),
+      changes: rs.rowsAffected,
+    };
+  };
+
+  get = async (sql, params = []) => {
+    const rs = await client.execute({ sql, args: params });
+    return rs.rows[0] || null;
+  };
+
+  all = async (sql, params = []) => {
+    const rs = await client.execute({ sql, args: params });
+    return rs.rows;
+  };
+
+  db = client;
+} else {
+  const sqlite3 = require('sqlite3').verbose();
+  const DATA_DIR = process.env.DATABASE_DIR || path.join(__dirname, '..', 'data');
+  if (!fs.existsSync(DATA_DIR)) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+  }
+
+  const DB_PATH = process.env.DATABASE_PATH || path.join(DATA_DIR, 'links.db');
+  const localDb = new sqlite3.Database(DB_PATH);
+
+  run = (sql, params = []) =>
+    new Promise((resolve, reject) =>
+      localDb.run(sql, params, function (err) {
+        if (err) reject(err);
+        else resolve(this);
+      })
+    );
+
+  get = (sql, params = []) =>
+    new Promise((resolve, reject) =>
+      localDb.get(sql, params, (err, row) => {
+        if (err) reject(err);
+        else resolve(row);
+      })
+    );
+
+  all = (sql, params = []) =>
+    new Promise((resolve, reject) =>
+      localDb.all(sql, params, (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows);
+      })
+    );
+
+  db = localDb;
 }
-
-const DB_PATH = process.env.DATABASE_PATH || path.join(DATA_DIR, 'links.db');
-const db = new sqlite3.Database(DB_PATH);
-
-// Promisify helpers
-const run = (sql, params = []) =>
-  new Promise((resolve, reject) =>
-    db.run(sql, params, function (err) {
-      if (err) reject(err);
-      else resolve(this); // this.lastID, this.changes
-    })
-  );
-
-const get = (sql, params = []) =>
-  new Promise((resolve, reject) =>
-    db.get(sql, params, (err, row) => {
-      if (err) reject(err);
-      else resolve(row);
-    })
-  );
-
-const all = (sql, params = []) =>
-  new Promise((resolve, reject) =>
-    db.all(sql, params, (err, rows) => {
-      if (err) reject(err);
-      else resolve(rows);
-    })
-  );
 
 // Init schema
 const init = async () => {
