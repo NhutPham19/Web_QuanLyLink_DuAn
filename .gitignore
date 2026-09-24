@@ -19,6 +19,8 @@ web-quan-ly-link/data/
 .env
 .env.local
 .env.*.local
+**/.env
+web-quan-ly-link/.env
 frontend/.env
 frontend/.env.local
 
